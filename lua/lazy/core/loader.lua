@@ -364,8 +364,8 @@ function M._load(plugin, reason, opts)
 
   plugin._.loaded.time = Util.track().time
   table.remove(M.loading)
+  vim.api.nvim_exec_autocmds("User", { pattern = "LazyLoad", modeline = false, data = plugin.name })
   vim.schedule(function()
-    vim.api.nvim_exec_autocmds("User", { pattern = "LazyLoad", modeline = false, data = plugin.name })
     vim.api.nvim_exec_autocmds("User", { pattern = "LazyRender", modeline = false })
   end)
 end
