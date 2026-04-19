@@ -21,6 +21,7 @@
 ---@field tasks? LazyTask[]
 ---@field updated? {from:string, to:string}
 ---@field updates? {from:GitInfo, to:GitInfo}
+---@field upstream_updates? {from:GitInfo, to:GitInfo}
 ---@field last_check? number
 ---@field working? boolean
 ---@field pkg? LazyPkg
@@ -42,6 +43,7 @@
 
 ---@class LazyPluginRef
 ---@field branch? string
+---@field upstream_branch? string Branch to use when checking the upstream remote
 ---@field tag? string
 ---@field commit? string
 ---@field version? string|boolean
@@ -53,6 +55,7 @@
 ---@field name string display name and name used for plugin config files
 ---@field main? string Entry module that has setup & deactivate
 ---@field url string?
+---@field upstream? string Upstream git URL or short repo used to check fork updates
 ---@field dir string
 ---@field enabled? boolean|(fun():boolean)
 ---@field cond? boolean|(fun():boolean)

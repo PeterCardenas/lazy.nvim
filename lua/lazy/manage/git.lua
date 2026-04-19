@@ -7,6 +7,18 @@ local M = {}
 
 ---@alias GitInfo {branch?:string, commit?:string, tag?:string, version?:Semver}
 
+---@param url? string
+---@return string?
+function M.normalize(url)
+  if not url then
+    return
+  end
+  if url:find("/", 1, true) and not url:match("^[%w+.-]+://") and url:sub(1, 4) ~= "git@" then
+    return Config.options.git.url_format:format(url)
+  end
+  return url
+end
+
 ---@param repo string
 ---@param details? boolean Fetching details is slow! Don't loop over a plugin to fetch all details!
 ---@return GitInfo?
@@ -79,16 +91,20 @@ function M.get_tags(repo)
 end
 
 ---@param plugin LazyPlugin
+---@param remote? string
 ---@return string?
-function M.get_branch(plugin)
-  if plugin.branch then
+function M.get_branch(plugin, remote)
+  remote = remote or "origin"
+  if remote == "upstream" and plugin.upstream_branch then
+    return plugin.upstream_branch
+  elseif plugin.branch then
     return plugin.branch
   else
     -- we need to return the default branch
-    -- Try origin first
-    local main = M.ref(plugin.dir, "remotes/origin/HEAD")
+    -- Try the remote HEAD first
+    local main = M.ref(plugin.dir, "remotes/" .. remote .. "/HEAD")
     if main then
-      local branch = main:match("ref: refs/remotes/origin/(.*)")
+      local branch = main:match("ref: refs/remotes/" .. remote .. "/(.*)")
       if branch then
         return branch
       end
@@ -103,26 +119,29 @@ end
 -- Return the last commit for the given branch
 ---@param repo string
 ---@param branch string
----@param origin? boolean
-function M.get_commit(repo, branch, origin)
-  if origin then
-    -- origin ref might not exist if it is the same as local
-    return M.ref(repo, "remotes/origin", branch) or M.ref(repo, "heads", branch)
+---@param remote? boolean|string
+function M.get_commit(repo, branch, remote)
+  if remote then
+    remote = type(remote) == "string" and remote or "origin"
+    -- remote ref might not exist if it is the same as local
+    return M.ref(repo, "remotes/" .. remote, branch) or M.ref(repo, "heads", branch)
   else
     return M.ref(repo, "heads", branch)
   end
 end
 
 ---@param plugin LazyPlugin
+---@param remote? string
 ---@return GitInfo?
-function M.get_target(plugin)
+function M.get_target(plugin, remote)
+  remote = remote or "origin"
   if plugin._.is_local then
     local info = M.info(plugin.dir)
-    local branch = assert(info and info.branch or M.get_branch(plugin))
-    return { branch = branch, commit = M.get_commit(plugin.dir, branch, true) }
+    local branch = assert(info and info.branch or M.get_branch(plugin, remote))
+    return { branch = branch, commit = M.get_commit(plugin.dir, branch, remote) }
   end
 
-  local branch = assert(M.get_branch(plugin))
+  local branch = assert(M.get_branch(plugin, remote))
 
   if plugin.commit then
     return {
@@ -150,7 +169,7 @@ function M.get_target(plugin)
       }
     end
   end
-  return { branch = branch, commit = M.get_commit(plugin.dir, branch, true) }
+  return { branch = branch, commit = M.get_commit(plugin.dir, branch, remote) }
 end
 
 function M.ref(repo, ...)
@@ -206,7 +225,21 @@ end
 
 ---@param repo string
 function M.get_origin(repo)
-  return M.get_config(repo)["remote.origin.url"]
+  return M.get_remote(repo, "origin")
+end
+
+---@param plugin LazyPlugin
+---@param remote? string
+---@return string?
+function M.get_url(plugin, remote)
+  remote = remote or "origin"
+  return remote == "upstream" and M.normalize(plugin.upstream) or M.normalize(plugin.url)
+end
+
+---@param repo string
+---@param remote string
+function M.get_remote(repo, remote)
+  return M.get_config(repo)["remote." .. remote .. ".url"]
 end
 
 ---@param repo string
@@ -239,6 +272,22 @@ end
 function M.count(repo, commit1, commit2)
   local lines = Process.exec({ "git", "rev-list", "--count", commit1 .. ".." .. commit2 }, { cwd = repo })
   return tonumber(lines[1] or "0") or 0
+end
+
+---@param repo string
+---@param current string|GitInfo
+---@param target string|GitInfo
+---@return {ahead:number, behind:number}
+function M.status(repo, current, target)
+  current = type(current) == "table" and current.commit or current
+  target = type(target) == "table" and target.commit or target
+  if not (current and target) then
+    return { ahead = 0, behind = 0 }
+  end
+  return {
+    behind = M.count(repo, current, target),
+    ahead = M.count(repo, target, current),
+  }
 end
 
 function M.age(repo, commit)

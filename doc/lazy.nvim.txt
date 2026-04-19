@@ -256,6 +256,12 @@ SPEC SOURCE                           *lazy.nvim-🔌-plugin-spec-spec-source*
 
   url        string?    A custom git url where the plugin is hosted
 
+  upstream   string?    Upstream git url or short repo used to check for
+                        updates on forked plugins
+
+  upstream_branch string? Branch to use when checking the upstream remote.
+                          Defaults to `branch`
+
   name       string?    A custom name for the plugin used for the local plugin
                         directory and as the display name
 
@@ -488,6 +494,12 @@ EXAMPLES                                 *lazy.nvim-🔌-plugin-spec-examples*
       -- This will use {config.dev.path}/noice.nvim/ instead of fetching it from GitHub
       -- With the dev option, you can easily switch between the local and installed version of a plugin
       { "folke/noice.nvim", dev = true },
+
+      -- forked plugins can track upstream updates without changing their origin
+      { "peter/noice.nvim", upstream = "folke/noice.nvim" },
+
+      -- you can also use a different branch name for upstream checks
+      { "peter/noice.nvim", branch = "fork-main", upstream = "folke/noice.nvim", upstream_branch = "main" },
     }
 <
 

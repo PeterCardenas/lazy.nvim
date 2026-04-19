@@ -38,6 +38,20 @@ describe("plugin spec url/name", function()
     { { "https://foo.bar" }, { [1] = "https://foo.bar", name = "foo.bar", url = "https://foo.bar" } },
     { { "foo/bar", name = "foobar" }, { [1] = "foo/bar", name = "foobar", url = "https://github.com/foo/bar.git" } },
     { { "foo/bar", url = "123" }, { [1] = "foo/bar", name = "bar", url = "123" } },
+    {
+      { "me/bar", upstream = "foo/bar" },
+      { [1] = "me/bar", name = "bar", url = "https://github.com/me/bar.git", upstream = "foo/bar" },
+    },
+    {
+      { "me/bar", upstream = "foo/bar", upstream_branch = "main" },
+      {
+        [1] = "me/bar",
+        name = "bar",
+        url = "https://github.com/me/bar.git",
+        upstream = "foo/bar",
+        upstream_branch = "main",
+      },
+    },
     { { url = "https://foobar" }, { name = "foobar", url = "https://foobar" } },
     {
       { { url = "https://foo", name = "foobar" }, { url = "https://foo" } },

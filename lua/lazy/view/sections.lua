@@ -74,6 +74,13 @@ return {
     title = "Updates",
   },
   {
+    ---@param plugin LazyPlugin
+    filter = function(plugin)
+      return plugin._.upstream_updates ~= nil
+    end,
+    title = "Upstream",
+  },
+  {
     filter = function(plugin)
       return has_task(plugin, function(task)
         return task.name == "log" and vim.trim(task:output()) ~= ""

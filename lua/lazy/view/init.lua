@@ -25,6 +25,29 @@ local M = {}
 ---@type LazyView
 M.view = nil
 
+---@param value string|GitInfo?
+---@return string?
+local function short_commit(value)
+  if type(value) == "table" then
+    value = value.commit
+  end
+  return value and value:sub(1, 7) or nil
+end
+
+---@param diff LazyDiff|{commit?:string|GitInfo, from?:string|GitInfo, to?:string|GitInfo, url?:string}
+---@return LazyDiff?
+local function normalize_diff(diff)
+  if diff.commit then
+    local commit = short_commit(diff.commit)
+    return commit and { commit = commit, url = diff.url } or nil
+  end
+  local from = short_commit(diff.from)
+  local to = short_commit(diff.to)
+  if from and to then
+    return { from = from, to = to, url = diff.url }
+  end
+end
+
 function M.visible()
   return M.view and M.view.win and vim.api.nvim_win_is_valid(M.view.win)
 end
@@ -264,6 +287,9 @@ function M:diff(opts)
       diff = { commit = opts.commit }
     elseif plugin._.updated then
       diff = vim.deepcopy(plugin._.updated)
+    elseif plugin._.upstream_updates then
+      diff = vim.deepcopy(plugin._.upstream_updates)
+      diff.url = Git.get_url(plugin, "upstream")
     else
       local info = assert(Git.info(plugin.dir))
       local target = assert(Git.get_target(plugin))
@@ -277,8 +303,9 @@ function M:diff(opts)
       return
     end
 
-    for k, v in pairs(diff) do
-      diff[k] = v:sub(1, 7)
+    diff = normalize_diff(diff)
+    if not diff then
+      return
     end
 
     if opts.browser then

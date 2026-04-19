@@ -11,6 +11,19 @@ M.running = false
 M.updated = {}
 M.reported = {}
 
+---@param plugin LazyPlugin
+---@param info GitInfo?
+local function check_upstream(plugin, info)
+  plugin._.upstream_updates = nil
+  if not (plugin.upstream and info) then
+    return
+  end
+  local ok, target = pcall(Git.get_target, plugin, "upstream")
+  if ok and target and target.commit and Git.status(plugin.dir, info, target).behind > 0 then
+    plugin._.upstream_updates = { from = info, to = target }
+  end
+end
+
 function M.start()
   M.fast_check()
   if M.schedule() > 0 and not M.has_errors() then
@@ -39,11 +52,13 @@ function M.fast_check(opts)
     -- only if local is behind upstream (if the git log task gives no output)
     if plugin._.installed and not (plugin.pin or plugin._.is_local) then
       plugin._.updates = nil
+      plugin._.upstream_updates = nil
       local info = Git.info(plugin.dir)
       local ok, target = pcall(Git.get_target, plugin)
       if ok and info and target and not Git.eq(info, target) then
         plugin._.updates = { from = info, to = target }
       end
+      check_upstream(plugin, info)
     end
   end
   M.report(opts.report ~= false)
@@ -80,10 +95,11 @@ function M.report(notify)
   local lines = {}
   M.updated = {}
   for _, plugin in pairs(Config.plugins) do
-    if plugin._.updates then
+    if plugin._.updates or plugin._.upstream_updates then
       table.insert(M.updated, plugin.name)
       if not vim.tbl_contains(M.reported, plugin.name) then
-        table.insert(lines, "- **" .. plugin.name .. "**")
+        local suffix = plugin._.updates and "" or " (upstream)"
+        table.insert(lines, "- **" .. plugin.name .. "**" .. suffix)
         table.insert(M.reported, plugin.name)
       end
     end

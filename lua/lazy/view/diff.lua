@@ -1,20 +1,30 @@
+local Git = require("lazy.manage.git")
 local Util = require("lazy.util")
 
 local M = {}
 
----@alias LazyDiff {commit:string} | {from:string, to:string}
+---@param plugin LazyPlugin
+---@param diff LazyDiff
+---@return boolean
+local function is_upstream_compare(plugin, diff)
+  return not not (plugin.upstream and diff.url and diff.url == Git.get_url(plugin, "upstream"))
+end
+
+---@alias LazyDiff {commit:string, url?:string} | {from:string, to:string, url?:string}
 ---@alias LazyDiffFun fun(plugin:LazyPlugin, diff:LazyDiff)
 
 M.handlers = {
 
   ---@type LazyDiffFun
   browser = function(plugin, diff)
-    if plugin.url then
-      local url = plugin.url:gsub("%.git$", "")
+    local remote = diff.url or plugin.url
+    if remote then
+      local url = remote:gsub("%.git$", "")
       if diff.commit then
         Util.open(url .. "/commit/" .. diff.commit)
       else
-        Util.open(url .. "/compare/" .. diff.from .. ".." .. diff.to)
+        local dots = is_upstream_compare(plugin, diff) and "..." or ".."
+        Util.open(url .. "/compare/" .. diff.from .. dots .. diff.to)
       end
     else
       Util.error("No url for " .. plugin.name)

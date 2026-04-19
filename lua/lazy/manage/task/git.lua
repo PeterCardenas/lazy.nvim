@@ -52,6 +52,19 @@ end
 ---@type table<string, LazyTaskDef>
 local M = {}
 
+---@param plugin LazyPlugin
+---@param info GitInfo?
+local function check_upstream(plugin, info)
+  plugin._.upstream_updates = nil
+  if not (plugin.upstream and info) then
+    return
+  end
+  local ok, target = pcall(Git.get_target, plugin, "upstream")
+  if ok and target and target.commit and Git.status(plugin.dir, info, target).behind > 0 then
+    plugin._.upstream_updates = { from = info, to = target }
+  end
+end
+
 M.log = {
   ---@param opts {updated?:boolean, check?: boolean}
   skip = function(plugin, opts)
@@ -85,6 +98,7 @@ M.log = {
     elseif opts.check then
       info = assert(Git.info(self.plugin.dir))
       target = assert(Git.get_target(self.plugin))
+      check_upstream(self.plugin, info)
       if not target.commit then
         for k, v in pairs(target) do
           error(k .. " '" .. v .. "' not found")
@@ -235,6 +249,40 @@ M.origin = {
   end,
 }
 
+M.upstream = {
+  skip = function(plugin)
+    return not plugin._.installed or plugin._.is_local or not plugin.upstream
+  end,
+  ---@async
+  ---@param opts {check?:boolean}
+  run = function(self, opts)
+    local remote = Git.get_remote(self.plugin.dir, "upstream")
+    local url = assert(Git.get_url(self.plugin, "upstream"))
+    if remote == url then
+      return
+    end
+    if opts.check then
+      local msg = remote and {
+        "Upstream has changed:",
+        "  * old: " .. remote,
+        "  * new: " .. url,
+        "Please run update to fix",
+      } or {
+        "Upstream is missing:",
+        "  * new: " .. url,
+        "Please run update to fix",
+      }
+      self:error(msg)
+      return
+    end
+    local args = remote and { "remote", "set-url", "upstream", url } or { "remote", "add", "upstream", url }
+    self:spawn("git", {
+      args = args,
+      cwd = self.plugin.dir,
+    })
+  end,
+}
+
 M.status = {
   skip = function(plugin)
     return not plugin._.installed or plugin._.is_local
@@ -293,15 +341,24 @@ M.fetch = {
       table.remove(args, 2)
     end
 
-    self:spawn("git", {
-      args = args,
-      cwd = self.plugin.dir,
-      on_exit = function(ok)
-        if ok then
-          self.plugin._.last_check = vim.uv.now()
-        end
-      end,
-    })
+    local remotes = { "origin" }
+    if self.plugin.upstream then
+      remotes[#remotes + 1] = "upstream"
+    end
+
+    for index, remote in ipairs(remotes) do
+      local fetch_args = vim.deepcopy(args)
+      fetch_args[#fetch_args + 1] = remote
+      self:spawn("git", {
+        args = fetch_args,
+        cwd = self.plugin.dir,
+        on_exit = index == #remotes and function(ok)
+          if ok then
+            self.plugin._.last_check = vim.uv.now()
+          end
+        end or nil,
+      })
+    end
   end,
 }
 

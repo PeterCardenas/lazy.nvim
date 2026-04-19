@@ -82,6 +82,7 @@ function M.install(opts)
     pipeline = {
       "plugin.exists",
       "git.clone",
+      "git.upstream",
       { "git.checkout", lockfile = opts.lockfile },
       "plugin.docs",
       {
@@ -111,6 +112,7 @@ function M.update(opts)
     pipeline = {
       "plugin.exists",
       "git.origin",
+      "git.upstream",
       "git.branch",
       "git.fetch",
       "git.status",
@@ -151,6 +153,7 @@ function M.check(opts)
     pipeline = {
       "plugin.exists",
       { "git.origin", check = true },
+      "git.upstream",
       "git.fetch",
       "git.status",
       "wait",
@@ -232,6 +235,7 @@ end
 function M.clear(plugins)
   for _, plugin in pairs(plugins or Config.plugins) do
     plugin._.updates = nil
+    plugin._.upstream_updates = nil
     plugin._.updated = nil
     plugin._.cloned = nil
     plugin._.dirty = nil

@@ -437,6 +437,11 @@ function M:diagnostics(plugin)
         message = "updates available",
       })
     end
+  elseif plugin._.upstream_updates then
+    self:diagnostic({
+      message = "new upstream commits",
+      severity = vim.diagnostic.severity.WARN,
+    })
   end
 end
 
@@ -562,6 +567,9 @@ function M:details(plugin)
   table.insert(props, { "dir", plugin.dir, "LazyDir" })
   if plugin.url then
     table.insert(props, { "url", (plugin.url:gsub("%.git$", "")), "LazyUrl" })
+  end
+  if plugin.upstream then
+    table.insert(props, { "upstream", (Git.get_url(plugin, "upstream"):gsub("%.git$", "")), "LazyUrl" })
   end
   local git = Git.info(plugin.dir, true)
   if git then
